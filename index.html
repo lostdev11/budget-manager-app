@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Budget Manager</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  </head>
+  <body class="bg-gray-100 text-gray-800">
+    <div id="root" class="p-4"></div>
+
+    <script type="text/babel">
+      const { useState, useEffect } = React;
+
+      const InputForm = ({ label, value, onChange, type = "text" }) => (
+        <div className="mb-2">
+          <label className="block text-sm font-medium mb-1">{label}</label>
+          <input type={type} value={value} onChange={onChange} className="w-full p-2 border rounded" />
+        </div>
+      );
+
+      const BudgetApp = () => {
+        const [income, setIncome] = useState(localStorage.getItem("income") || "");
+        const [bills, setBills] = useState(JSON.parse(localStorage.getItem("bills")) || []);
+        const [subscriptions, setSubscriptions] = useState(JSON.parse(localStorage.getItem("subscriptions")) || []);
+        const [savings, setSavings] = useState(JSON.parse(localStorage.getItem("savings")) || []);
+        const [creditCards, setCreditCards] = useState(JSON.parse(localStorage.getItem("creditCards")) || []);
+        const [categories, setCategories] = useState(JSON.parse(localStorage.getItem("categories")) || ["Housing", "Utilities", "Food", "Transportation", "Entertainment"]);
+        const [newItem, setNewItem] = useState({ name: "", amount: "", date: "", category: "" });
+        const [type, setType] = useState("bill");
+        const [newCategory, setNewCategory] = useState("");
+        const [editingCard, setEditingCard] = useState(null);
+        const [newCreditCard, setNewCreditCard] = useState({ name: "", balance: "", limit: "", apr: "" });
+        const [customPayoffAmount, setCustomPayoffAmount] = useState("");
+        const [customPayoffPeriod, setCustomPayoffPeriod] = useState("");
+        const [customPayoffAPR, setCustomPayoffAPR] = useState("");
+        const [payoffItems, setPayoffItems] = useState(JSON.parse(localStorage.getItem("payoffItems")) || []);
+        const [savedBudgets, setSavedBudgets] = useState(JSON.parse(localStorage.getItem("savedBudgets")) || []);
+        const [budgetName, setBudgetName] = useState("");
+        const [showSaveModal, setShowSaveModal] = useState(false);
+        const [showLoadModal, setShowLoadModal] = useState(false);
+        const [targetPeriod, setTargetPeriod] = useState("custom");
+        const [customMonths, setCustomMonths] = useState(36);
+        const [billPayoffAmount, setBillPayoffAmount] = useState({});
+        const [billPayoffPeriod, setBillPayoffPeriod] = useState({});
+        const [billPayoffAPR, setBillPayoffAPR] = useState({});
+
+        const sortCards = (cards) => {
+          return strategy === "snowball"
+            ? [...cards].sort((a, b) => a.balance - b.balance)
+            : [...cards].sort((a, b) => b.apr - a.apr);
+        };
+
+        const generateCSV = (data, name) => {
+          const headers = "Month,Balance\n";
+          const rows = data.map(d => `${d.month},${d.balance}`).join("\n");
+          const csvContent = `data:text/csv;charset=utf-8,${headers}${rows}`;
+          const encodedUri = encodeURI(csvContent);
+          const link = document.createElement("a");
+          link.setAttribute("href", encodedUri);
+          link.setAttribute("download", `${name}_payoff.csv`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        };
+
+        const visualizePayoff = (balance, apr, months, extra = 0) => {
+          const monthlyRate = apr / 100 / 12;
+          const data = [];
+          let remaining = balance;
+          let month = 1;
+          while (remaining > 0 && month <= months) {
+            const interest = remaining * monthlyRate;
+            const principal = (balance / months) + parseFloat(extra);
+            remaining -= principal;
+            data.push({ month, balance: Math.max(0, remaining.toFixed(2)) });
+            month++;
+          }
+          return data;
+        };
+
+        const calculateMinimumPayment = (balance, apr) => {
+          const monthlyRate = apr / 100 / 12;
+          return Math.max(balance * 0.02, balance * monthlyRate);
+        };
+
+        const calculateRequiredPayment = (balance, apr, months) => {
+          const monthlyRate = apr / 100 / 12;
+          return (balance * monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
+        };
+
+        const calculatePayoffPlan = (cards) => {
+          const sortedCards = strategy === "snowball" 
+            ? [...cards].sort((a, b) => a.balance - b.balance)
+            : [...cards].sort((a, b) => b.apr - a.apr);
+
+          let remainingExtra = parseFloat(extraPayment) || 0;
+          const plan = sortedCards.map(card => {
+            const monthlyRate = card.apr / 100 / 12;
+            const minPayment = calculateMinimumPayment(card.balance, card.apr);
+            
+            // Calculate required payment based on target period
+            let targetMonths = customMonths;
+            if (targetPeriod === "3") targetMonths = 3;
+            else if (targetPeriod === "6") targetMonths = 6;
+            else if (targetPeriod === "12") targetMonths = 12;
+            
+            const requiredPayment = calculateRequiredPayment(card.balance, card.apr, targetMonths);
+            const actualPayment = Math.max(minPayment, requiredPayment) + remainingExtra;
+
+            let balance = card.balance;
+            let months = 0;
+            let totalInterest = 0;
+
+            while (balance > 0 && months < 360) { // Max 30 years
+              const interest = balance * monthlyRate;
+              totalInterest += interest;
+              balance = balance + interest - actualPayment;
+              months++;
+            }
+
+            return {
+              ...card,
+              minPayment,
+              requiredPayment,
+              actualPayment,
+              monthsToPayoff: months,
+              totalInterest,
+              totalPayment: card.balance + totalInterest,
+              targetMonths
+            };
+          });
+
+          return plan;
+        };
+
+        const calculateBillPayoff = (amount, period) => {
+          const monthlyPayment = amount / period;
+          return {
+            monthlyPayment: monthlyPayment.toFixed(2),
+            totalAmount: amount.toFixed(2),
+            period: period
+          };
+        };
+
+        const handleBillPayoffChange = (index, amount, period) => {
+          setBillPayoffAmount(prev => ({ ...prev, [index]: amount }));
+          setBillPayoffPeriod(prev => ({ ...prev, [index]: period }));
+        };
+
+        useEffect(() => {
+          localStorage.setItem("income", income);
+          localStorage.setItem("bills", JSON.stringify(bills));
+          localStorage.setItem("subscriptions", JSON.stringify(subscriptions));
+          localStorage.setItem("savings", JSON.stringify(savings));
+          localStorage.setItem("categories", JSON.stringify(categories));
+          localStorage.setItem("creditCards", JSON.stringify(creditCards));
+        }, [income, bills, subscriptions, savings, categories, creditCards]);
+
+        const addCategory = (e) => {
+          e.preventDefault();
+          if (newCategory && !categories.includes(newCategory)) {
+            setCategories([...categories, newCategory]);
+            setNewCategory("");
+          }
+        };
+
+        const addItem = (e) => {
+          e.preventDefault();
+          const amount = parseFloat(newItem.amount);
+          if (!newItem.name || isNaN(amount) || amount < 0) return alert("Enter valid data.");
+
+          const item = { ...newItem, amount, date: newItem.date || "N/A" };
+          if (type === "bill") setBills([...bills, item]);
+          else if (type === "subscription") setSubscriptions([...subscriptions, item]);
+          else setSavings([...savings, item]);
+
+          // Add new category if it doesn't exist
+          if (newItem.category && !categories.includes(newItem.category)) {
+            setCategories([...categories, newItem.category]);
+          }
+
+          setNewItem({ name: "", amount: "", date: "", category: "" });
+        };
+
+        const deleteItem = (index, kind) => {
+          if (kind === "bill") setBills(bills.filter((_, i) => i !== index));
+          else if (kind === "subscription") setSubscriptions(subscriptions.filter((_, i) => i !== index));
+          else setSavings(savings.filter((_, i) => i !== index));
+        };
+
+        const totalExpenses = [...bills, ...subscriptions, ...savings, ...creditCards].reduce((acc, item) => acc + (parseFloat(item.amount) || parseFloat(item.balance) || 0), 0);
+        const remaining = parseFloat(income || 0) - totalExpenses;
+        const payoffPlan = calculatePayoffPlan(creditCards);
+
+        useEffect(() => {
+          if (chartInstance) {
+            chartInstance.destroy();
+          }
+
+          const ctx = document.getElementById("budgetChart");
+          if (ctx) {
+            const newChart = new Chart(ctx.getContext("2d"), {
+              type: "doughnut",
+              data: {
+                labels: ["Bills", "Subscriptions", "Savings", "Remaining"],
+                datasets: [{
+                  data: [
+                    bills.reduce((acc, b) => acc + b.amount, 0),
+                    subscriptions.reduce((acc, s) => acc + s.amount, 0),
+                    savings.reduce((acc, s) => acc + s.amount, 0),
+                    remaining < 0 ? 0 : remaining
+                  ],
+                  backgroundColor: ["#f87171", "#60a5fa", "#fbbf24", "#34d399"]
+                }]
+              },
+              options: { responsive: true, plugins: { legend: { position: "bottom" } } }
+            });
+            setChartInstance(newChart);
+          }
+        }, [income, bills, subscriptions, savings]);
+
+        useEffect(() => {
+          Object.values(cardCharts).forEach(chart => chart.destroy());
+          const newCardCharts = {};
+
+          bills.filter(bill => bill.category === "credit").forEach((card, index) => {
+            const ctx = document.getElementById(`cardChart${index}`);
+            if (ctx) {
+              const payoffData = visualizePayoff(card.amount, card.apr || 15, 36, extraPayment);
+              const newChart = new Chart(ctx.getContext("2d"), {
+                type: 'line',
+                data: {
+                  labels: payoffData.map(d => `Month ${d.month}`),
+                  datasets: [{
+                    label: `${card.name} Payoff`,
+                    data: payoffData.map(d => d.balance),
+                    fill: false,
+                    borderColor: '#3b82f6'
+                  }]
+                },
+                options: { responsive: true, scales: { y: { beginAtZero: true } } }
+              });
+              newCardCharts[index] = newChart;
+            }
+          });
+
+          setCardCharts(newCardCharts);
+        }, [bills, extraPayment]);
+
+        const addCreditCard = (e) => {
+          e.preventDefault();
+          const balance = parseFloat(newCreditCard.balance);
+          const limit = parseFloat(newCreditCard.limit);
+          const apr = parseFloat(newCreditCard.apr);
+
+          if (!newCreditCard.name || isNaN(balance) || isNaN(limit) || isNaN(apr)) {
+            return alert("Please enter valid data for all fields.");
+          }
+
+          setCreditCards([...creditCards, { ...newCreditCard, balance, limit, apr }]);
+          setNewCreditCard({ name: "", balance: "", limit: "", apr: "" });
+        };
+
+        const deleteCreditCard = (index) => {
+          setCreditCards(creditCards.filter((_, i) => i !== index));
+        };
+
+        const editCreditCard = (index) => {
+          setEditingCard({ ...creditCards[index], index });
+        };
+
+        const saveEdit = (e) => {
+          e.preventDefault();
+          const updatedCards = [...creditCards];
+          const { index, ...cardData } = editingCard;
+          updatedCards[index] = cardData;
+          setCreditCards(updatedCards);
+          setEditingCard(null);
+        };
+
+        const cancelEdit = () => {
+          setEditingCard(null);
+        };
+
+        const totalCreditLimit = creditCards.reduce((acc, card) => acc + parseFloat(card.limit), 0);
+        const totalCreditUsed = creditCards.reduce((acc, card) => acc + parseFloat(card.balance), 0);
+        const totalAvailableCredit = totalCreditLimit - totalCreditUsed;
+        const creditUtilization = (totalCreditUsed / totalCreditLimit) * 100;
+
+        const calculateMonthlyPayment = (principal, apr, months) => {
+          const monthlyRate = (apr / 100) / 12;
+          const payment = (principal * monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
+          return payment;
+        };
+
+        const calculateTotalInterest = (principal, monthlyPayment, months) => {
+          return (monthlyPayment * months - principal);
+        };
+
+        const addPayoffItem = (e) => {
+          e.preventDefault();
+          if (customPayoffAmount && customPayoffPeriod) {
+            const apr = parseFloat(customPayoffAPR) || 0;
+            const monthlyPayment = calculateMonthlyPayment(
+              parseFloat(customPayoffAmount),
+              apr,
+              parseInt(customPayoffPeriod)
+            );
+            const totalInterest = calculateTotalInterest(
+              parseFloat(customPayoffAmount),
+              monthlyPayment,
+              parseInt(customPayoffPeriod)
+            );
+
+            const newItem = {
+              name: `Custom Payoff ${payoffItems.length + 1}`,
+              amount: parseFloat(customPayoffAmount),
+              period: parseInt(customPayoffPeriod),
+              apr: apr,
+              monthlyPayment: monthlyPayment.toFixed(2),
+              totalInterest: totalInterest.toFixed(2),
+              totalAmount: (parseFloat(customPayoffAmount) + totalInterest).toFixed(2)
+            };
+            setPayoffItems([...payoffItems, newItem]);
+            setCustomPayoffAmount('');
+            setCustomPayoffPeriod('');
+            setCustomPayoffAPR('');
+          }
+        };
+
+        const deletePayoffItem = (index) => {
+          setPayoffItems(payoffItems.filter((_, i) => i !== index));
+        };
+
+        const saveBudget = () => {
+          if (!budgetName.trim()) {
+            alert("Please enter a name for your budget");
+            return;
+          }
+
+          const budgetData = {
+            name: budgetName,
+            date: new Date().toLocaleDateString(),
+            income,
+            bills,
+            subscriptions,
+            savings,
+            creditCards,
+            categories,
+            payoffItems
+          };
+
+          const updatedBudgets = [...savedBudgets, budgetData];
+          setSavedBudgets(updatedBudgets);
+          localStorage.setItem("savedBudgets", JSON.stringify(updatedBudgets));
+          setShowSaveModal(false);
+          setBudgetName("");
+        };
+
+        const loadBudget = (budget) => {
+          setIncome(budget.income);
+          setBills(budget.bills);
+          setSubscriptions(budget.subscriptions);
+          setSavings(budget.savings);
+          setCreditCards(budget.creditCards);
+          setCategories(budget.categories);
+          setPayoffItems(budget.payoffItems);
+          setShowLoadModal(false);
+        };
+
+        const deleteSavedBudget = (index) => {
+          const updatedBudgets = savedBudgets.filter((_, i) => i !== index);
+          setSavedBudgets(updatedBudgets);
+          localStorage.setItem("savedBudgets", JSON.stringify(updatedBudgets));
+        };
+
+        return (
+          <div className="max-w-5xl mx-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h1 className="text-2xl font-bold">Budget Manager</h1>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setShowSaveModal(true)}
+                  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                >
+                  Save Budget
+                </button>
+                <button 
+                  onClick={() => setShowLoadModal(true)}
+                  className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                >
+                  Load Budget
+                </button>
+              </div>
+            </div>
+
+            {/* Save Budget Modal */}
+            {showSaveModal && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                <div className="bg-white p-6 rounded-lg w-96">
+                  <h2 className="text-xl font-semibold mb-4">Save Budget</h2>
+                  <input
+                    type="text"
+                    value={budgetName}
+                    onChange={(e) => setBudgetName(e.target.value)}
+                    placeholder="Enter budget name"
+                    className="w-full p-2 border rounded mb-4"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => setShowSaveModal(false)}
+                      className="bg-gray-500 text-white px-4 py-2 rounded"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={saveBudget}
+                      className="bg-blue-500 text-white px-4 py-2 rounded"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Load Budget Modal */}
+            {showLoadModal && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                <div className="bg-white p-6 rounded-lg w-96">
+                  <h2 className="text-xl font-semibold mb-4">Load Budget</h2>
+                  {savedBudgets.length === 0 ? (
+                    <p className="text-gray-500">No saved budgets found</p>
+                  ) : (
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                      {savedBudgets.map((budget, index) => (
+                        <div key={index} className="flex justify-between items-center p-2 border rounded">
+                          <div>
+                            <div className="font-medium">{budget.name}</div>
+                            <div className="text-sm text-gray-500">Saved on {budget.date}</div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => loadBudget(budget)}
+                              className="text-blue-500 hover:text-blue-600"
+                            >
+                              Load
+                            </button>
+                            <button
+                              onClick={() => deleteSavedBudget(index)}
+                              className="text-red-500 hover:text-red-600"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      onClick={() => setShowLoadModal(false)}
+                      className="bg-gray-500 text-white px-4 py-2 rounded"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <h1 className="text-2xl font-bold mb-4">💰 Budget Manager</h1>
+            
+            <InputForm label="Monthly Income ($)" type="number" value={income} onChange={e => setIncome(e.target.value)} />
+
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold mb-4">Bills & Subscriptions</h2>
+              <form onSubmit={addItem} className="flex flex-wrap gap-2 mb-4">
+                <select onChange={e => setType(e.target.value)} value={type} className="p-2 border rounded">
+                  <option value="bill">Bill</option>
+                  <option value="subscription">Subscription</option>
+                  <option value="savings">Savings</option>
+                </select>
+                <input 
+                  placeholder="Name" 
+                  value={newItem.name} 
+                  onChange={e => setNewItem({ ...newItem, name: e.target.value })}
+                  className="p-2 border rounded"
+                />
+                <input 
+                  placeholder="Amount" 
+                  type="number" 
+                  value={newItem.amount} 
+                  onChange={e => setNewItem({ ...newItem, amount: e.target.value })}
+                  className="p-2 border rounded"
+                />
+                <input 
+                  placeholder="Date" 
+                  type="date" 
+                  value={newItem.date} 
+                  onChange={e => setNewItem({ ...newItem, date: e.target.value })}
+                  className="p-2 border rounded"
+                />
+                <select 
+                  value={newItem.category} 
+                  onChange={e => setNewItem({ ...newItem, category: e.target.value })}
+                  className="p-2 border rounded"
+                >
+                  <option value="">Select Category</option>
+                  {categories.map((cat, index) => (
+                    <option key={index} value={cat}>{cat}</option>
+                  ))}
+                  <option value="new">+ Add New Category</option>
+                </select>
+                {newItem.category === 'new' && (
+                  <input 
+                    placeholder="New Category" 
+                    value={newCategory} 
+                    onChange={e => setNewCategory(e.target.value)}
+                    className="p-2 border rounded"
+                  />
+                )}
+                <button type="submit" className="bg-green-500 text-white px-4 py-2 rounded">Add</button>
+              </form>
+
+              <div className="space-y-2">
+                {bills.map((bill, index) => (
+                  <div key={index} className="border p-4 rounded">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <div className="font-medium">{bill.name}</div>
+                        <div className="text-sm text-gray-600">${parseFloat(bill.amount).toFixed(2)} - {bill.category}</div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => {
+                            const newItem = {
+                              name: bill.name,
+                              amount: parseFloat(bill.amount),
+                              period: 1,
+                              apr: 0,
+                              monthlyPayment: parseFloat(bill.amount).toFixed(2),
+                              totalInterest: "0.00",
+                              totalAmount: parseFloat(bill.amount).toFixed(2)
+                            };
+                            setPayoffItems([...payoffItems, newItem]);
+                          }}
+                          className="text-blue-500"
+                        >
+                          Add to Payoff
+                        </button>
+                        <button 
+                          onClick={() => deleteItem(index, "bill")} 
+                          className="text-red-500"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-2 p-2 bg-gray-50 rounded">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Payoff Amount</label>
+                          <input 
+                            type="number" 
+                            value={billPayoffAmount[index] || ''} 
+                            onChange={e => handleBillPayoffChange(index, e.target.value, billPayoffPeriod[index] || 1)}
+                            placeholder="Enter amount to pay off"
+                            className="w-full p-2 border rounded"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Payoff Period (months)</label>
+                          <select 
+                            value={billPayoffPeriod[index] || 1} 
+                            onChange={e => handleBillPayoffChange(index, billPayoffAmount[index] || 0, parseInt(e.target.value))}
+                            className="w-full p-2 border rounded"
+                          >
+                            <option value="1">1 month</option>
+                            <option value="2">2 months</option>
+                            <option value="3">3 months</option>
+                            <option value="6">6 months</option>
+                            <option value="12">12 months</option>
+                            <option value="custom">Custom</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">APR %</label>
+                          <input 
+                            type="number" 
+                            value={billPayoffAPR[index] || ''} 
+                            onChange={e => handleBillPayoffChange(index, billPayoffAmount[index] || 0, billPayoffPeriod[index] || 1, e.target.value)}
+                            placeholder="Enter APR"
+                            className="w-full p-2 border rounded"
+                          />
+                        </div>
+                      </div>
+                      {billPayoffAmount[index] && (
+                        <div className="mt-2 p-2 bg-white rounded border">
+                          <h4 className="font-medium mb-1">Payoff Plan</h4>
+                          <div className="text-sm">
+                            <p>Monthly Payment: ${calculateMonthlyPayment(
+                              parseFloat(billPayoffAmount[index]),
+                              parseFloat(billPayoffAPR[index] || 0),
+                              parseInt(billPayoffPeriod[index])
+                            ).toFixed(2)}</p>
+                            <p>Total Interest: ${calculateTotalInterest(
+                              parseFloat(billPayoffAmount[index]),
+                              calculateMonthlyPayment(
+                                parseFloat(billPayoffAmount[index]),
+                                parseFloat(billPayoffAPR[index] || 0),
+                                parseInt(billPayoffPeriod[index])
+                              ),
+                              parseInt(billPayoffPeriod[index])
+                            ).toFixed(2)}</p>
+                            <p>Total Amount: ${(parseFloat(billPayoffAmount[index]) + calculateTotalInterest(
+                              parseFloat(billPayoffAmount[index]),
+                              calculateMonthlyPayment(
+                                parseFloat(billPayoffAmount[index]),
+                                parseFloat(billPayoffAPR[index] || 0),
+                                parseInt(billPayoffPeriod[index])
+                              ),
+                              parseInt(billPayoffPeriod[index])
+                            )).toFixed(2)}</p>
+                            <p>Period: {billPayoffPeriod[index]} months</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold mb-4">Custom Payoff Plans</h2>
+              <form onSubmit={addPayoffItem} className="flex flex-wrap gap-2 mb-4">
+                <input 
+                  type="number" 
+                  value={customPayoffAmount} 
+                  onChange={e => setCustomPayoffAmount(e.target.value)}
+                  placeholder="Enter amount to pay off"
+                  className="p-2 border rounded"
+                />
+                <input 
+                  type="number" 
+                  value={customPayoffPeriod} 
+                  onChange={e => setCustomPayoffPeriod(e.target.value)}
+                  placeholder="Enter months to pay off"
+                  className="p-2 border rounded"
+                />
+                <input 
+                  type="number" 
+                  value={customPayoffAPR} 
+                  onChange={e => setCustomPayoffAPR(e.target.value)}
+                  placeholder="Enter APR % (optional)"
+                  className="p-2 border rounded"
+                />
+                <button type="submit" className="bg-green-500 text-white px-4 py-2 rounded">Add Payoff Plan</button>
+              </form>
+
+              <div className="space-y-2">
+                {payoffItems.map((item, index) => (
+                  <div key={index} className="border p-4 rounded">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <div className="font-medium">{item.name}</div>
+                        <div className="text-sm text-gray-600">
+                          Principal: ${item.amount.toFixed(2)}<br />
+                          Period: {item.period} months<br />
+                          APR: {item.apr}%<br />
+                          Monthly Payment: ${item.monthlyPayment}<br />
+                          Total Interest: ${item.totalInterest}<br />
+                          Total Amount: ${item.totalAmount}
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => deletePayoffItem(index)} 
+                        className="text-red-500"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold mb-4">Credit Cards</h2>
+              <form onSubmit={addCreditCard} className="flex flex-wrap gap-2 mb-4">
+                <input 
+                  placeholder="Card Name" 
+                  value={newCreditCard.name} 
+                  onChange={e => setNewCreditCard({ ...newCreditCard, name: e.target.value })}
+                  className="p-2 border rounded"
+                />
+                <input 
+                  placeholder="Balance" 
+                  type="number" 
+                  value={newCreditCard.balance} 
+                  onChange={e => setNewCreditCard({ ...newCreditCard, balance: e.target.value })}
+                  className="p-2 border rounded"
+                />
+                <input 
+                  placeholder="Credit Limit" 
+                  type="number" 
+                  value={newCreditCard.limit} 
+                  onChange={e => setNewCreditCard({ ...newCreditCard, limit: e.target.value })}
+                  className="p-2 border rounded"
+                />
+                <input 
+                  placeholder="APR %" 
+                  type="number" 
+                  value={newCreditCard.apr} 
+                  onChange={e => setNewCreditCard({ ...newCreditCard, apr: e.target.value })}
+                  className="p-2 border rounded"
+                />
+                <button type="submit" className="bg-green-500 text-white px-4 py-2 rounded">Add Card</button>
+              </form>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div className="bg-white p-4 rounded shadow">
+                  <h3 className="font-semibold mb-2">Credit Summary</h3>
+                  <p>Total Credit Limit: ${totalCreditLimit.toFixed(2)}</p>
+                  <p>Total Credit Used: ${totalCreditUsed.toFixed(2)}</p>
+                  <p>Available Credit: ${totalAvailableCredit.toFixed(2)}</p>
+                  <p>Credit Utilization: {creditUtilization.toFixed(1)}%</p>
+                </div>
+                <div className="bg-white p-4 rounded shadow">
+                  <h3 className="font-semibold mb-2">Credit Cards</h3>
+                  <div className="space-y-2">
+                    {creditCards.map((card, index) => (
+                      <div key={index} className="border p-2 rounded">
+                        {editingCard && editingCard.index === index ? (
+                          <form onSubmit={saveEdit} className="space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="block text-sm font-medium">Card Name:</label>
+                                <input 
+                                  type="text" 
+                                  value={editingCard.name} 
+                                  onChange={e => setEditingCard({ ...editingCard, name: e.target.value })}
+                                  className="w-full p-2 border rounded"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium">Balance:</label>
+                                <input 
+                                  type="number" 
+                                  value={editingCard.balance} 
+                                  onChange={e => setEditingCard({ ...editingCard, balance: e.target.value })}
+                                  className="w-full p-2 border rounded"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium">Credit Limit:</label>
+                                <input 
+                                  type="number" 
+                                  value={editingCard.limit} 
+                                  onChange={e => setEditingCard({ ...editingCard, limit: e.target.value })}
+                                  className="w-full p-2 border rounded"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium">APR %:</label>
+                                <input 
+                                  type="number" 
+                                  value={editingCard.apr} 
+                                  onChange={e => setEditingCard({ ...editingCard, apr: e.target.value })}
+                                  className="w-full p-2 border rounded"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <button type="submit" className="bg-green-500 text-white px-3 py-1 rounded">Save</button>
+                              <button type="button" onClick={cancelEdit} className="bg-gray-500 text-white px-3 py-1 rounded">Cancel</button>
+                            </div>
+                          </form>
+                        ) : (
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <div className="font-medium">{card.name}</div>
+                              <div className="text-sm">
+                                Balance: ${parseFloat(card.balance).toFixed(2)} / ${parseFloat(card.limit).toFixed(2)}
+                                <br />
+                                APR: {card.apr}%
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <button 
+                                onClick={() => editCreditCard(index)} 
+                                className="text-blue-500"
+                              >
+                                Edit
+                              </button>
+                              <button 
+                                onClick={() => deleteCreditCard(index)} 
+                                className="text-red-500"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold mb-4">Budget Overview</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white p-4 rounded shadow">
+                  <h3 className="font-semibold mb-2">Monthly Summary</h3>
+                  <p>Income: ${parseFloat(income || 0).toFixed(2)}</p>
+                  <p>Total Expenses: ${totalExpenses.toFixed(2)}</p>
+                  <p>Remaining: ${remaining.toFixed(2)}</p>
+                </div>
+                <div className="bg-white p-4 rounded shadow">
+                  <canvas id="budgetChart"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      ReactDOM.render(<BudgetApp />, document.getElementById("root"));
+    </script>
+  </body>
+</html> 
