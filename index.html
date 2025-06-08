@@ -76,6 +76,8 @@
         const [billPayoffAmount, setBillPayoffAmount] = useState({});
         const [billPayoffPeriod, setBillPayoffPeriod] = useState({});
         const [billPayoffAPR, setBillPayoffAPR] = useState({});
+        const [strategy, setStrategy] = useState("snowball");
+        const [extraPayment, setExtraPayment] = useState("");
 
         const sortCards = (cards) => {
           return strategy === "snowball"
