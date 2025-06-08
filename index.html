@@ -104,11 +104,23 @@
           const data = [];
           let remaining = balance;
           let month = 1;
+          let totalInterest = 0;
+          let totalPrincipal = 0;
+
           while (remaining > 0 && month <= months) {
             const interest = remaining * monthlyRate;
             const principal = (balance / months) + parseFloat(extra);
+            totalInterest += interest;
+            totalPrincipal += principal;
             remaining -= principal;
-            data.push({ month, balance: Math.max(0, remaining.toFixed(2)) });
+            data.push({ 
+              month, 
+              balance: Math.max(0, remaining.toFixed(2)),
+              interest: interest.toFixed(2),
+              principal: principal.toFixed(2),
+              totalInterest: totalInterest.toFixed(2),
+              totalPrincipal: totalPrincipal.toFixed(2)
+            });
             month++;
           }
           return data;
@@ -126,21 +138,70 @@
             type: 'line',
             data: {
               labels: data.map(d => `Month ${d.month}`),
-              datasets: [{
-                label: 'Remaining Balance',
-                data: data.map(d => d.balance),
-                borderColor: 'rgb(75, 192, 192)',
-                tension: 0.1
-              }]
+              datasets: [
+                {
+                  label: 'Remaining Balance',
+                  data: data.map(d => d.balance),
+                  borderColor: 'rgb(75, 192, 192)',
+                  backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                  fill: true,
+                  tension: 0.1
+                },
+                {
+                  label: 'Interest Paid',
+                  data: data.map(d => d.totalInterest),
+                  borderColor: 'rgb(255, 99, 132)',
+                  backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                  fill: true,
+                  tension: 0.1
+                },
+                {
+                  label: 'Principal Paid',
+                  data: data.map(d => d.totalPrincipal),
+                  borderColor: 'rgb(54, 162, 235)',
+                  backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                  fill: true,
+                  tension: 0.1
+                }
+              ]
             },
             options: {
               responsive: true,
+              interaction: {
+                mode: 'index',
+                intersect: false,
+              },
+              plugins: {
+                title: {
+                  display: true,
+                  text: 'Payoff Progress Over Time'
+                },
+                tooltip: {
+                  callbacks: {
+                    label: function(context) {
+                      let label = context.dataset.label || '';
+                      if (label) {
+                        label += ': ';
+                      }
+                      if (context.parsed.y !== null) {
+                        label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                      }
+                      return label;
+                    }
+                  }
+                }
+              },
               scales: {
                 y: {
                   beginAtZero: true,
                   title: {
                     display: true,
-                    text: 'Balance ($)'
+                    text: 'Amount ($)'
+                  },
+                  ticks: {
+                    callback: function(value) {
+                      return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+                    }
                   }
                 },
                 x: {
