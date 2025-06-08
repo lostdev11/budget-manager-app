@@ -723,6 +723,27 @@
 
             <div className="mb-6">
               <h2 className="text-xl font-semibold mb-4">Credit Cards</h2>
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-1">Payoff Strategy</label>
+                <select 
+                  value={strategy} 
+                  onChange={e => setStrategy(e.target.value)}
+                  className="p-2 border rounded"
+                >
+                  <option value="snowball">Snowball (Lowest Balance First)</option>
+                  <option value="avalanche">Avalanche (Highest APR First)</option>
+                </select>
+                <div className="mt-2">
+                  <label className="block text-sm font-medium mb-1">Extra Monthly Payment ($)</label>
+                  <input 
+                    type="number" 
+                    value={extraPayment} 
+                    onChange={e => setExtraPayment(e.target.value)}
+                    className="p-2 border rounded"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
               <form onSubmit={addCreditCard} className="flex flex-wrap gap-2 mb-4">
                 <input 
                   placeholder="Card Name" 
