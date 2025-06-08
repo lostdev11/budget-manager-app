@@ -78,6 +78,7 @@
         const [billPayoffAPR, setBillPayoffAPR] = useState({});
         const [strategy, setStrategy] = useState("snowball");
         const [extraPayment, setExtraPayment] = useState("");
+        const [chartInstance, setChartInstance] = useState(null);
 
         const sortCards = (cards) => {
           return strategy === "snowball"
@@ -111,6 +112,48 @@
             month++;
           }
           return data;
+        };
+
+        const renderPayoffChart = (data, cardName) => {
+          const ctx = document.getElementById(`chart-${cardName}`);
+          if (!ctx) return;
+
+          if (chartInstance) {
+            chartInstance.destroy();
+          }
+
+          const newChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: data.map(d => `Month ${d.month}`),
+              datasets: [{
+                label: 'Remaining Balance',
+                data: data.map(d => d.balance),
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1
+              }]
+            },
+            options: {
+              responsive: true,
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  title: {
+                    display: true,
+                    text: 'Balance ($)'
+                  }
+                },
+                x: {
+                  title: {
+                    display: true,
+                    text: 'Month'
+                  }
+                }
+              }
+            }
+          });
+
+          setChartInstance(newChart);
         };
 
         const calculateMinimumPayment = (balance, apr) => {
@@ -228,59 +271,12 @@
         const payoffPlan = calculatePayoffPlan(creditCards);
 
         useEffect(() => {
-          if (chartInstance) {
-            chartInstance.destroy();
+          if (creditCards.length > 0) {
+            const card = creditCards[0];
+            const data = visualizePayoff(card.balance, card.apr, 36, parseFloat(extraPayment) || 0);
+            renderPayoffChart(data, card.name);
           }
-
-          const ctx = document.getElementById("budgetChart");
-          if (ctx) {
-            const newChart = new Chart(ctx.getContext("2d"), {
-              type: "doughnut",
-              data: {
-                labels: ["Bills", "Subscriptions", "Savings", "Remaining"],
-                datasets: [{
-                  data: [
-                    bills.reduce((acc, b) => acc + b.amount, 0),
-                    subscriptions.reduce((acc, s) => acc + s.amount, 0),
-                    savings.reduce((acc, s) => acc + s.amount, 0),
-                    remaining < 0 ? 0 : remaining
-                  ],
-                  backgroundColor: ["#f87171", "#60a5fa", "#fbbf24", "#34d399"]
-                }]
-              },
-              options: { responsive: true, plugins: { legend: { position: "bottom" } } }
-            });
-            setChartInstance(newChart);
-          }
-        }, [income, bills, subscriptions, savings]);
-
-        useEffect(() => {
-          Object.values(cardCharts).forEach(chart => chart.destroy());
-          const newCardCharts = {};
-
-          bills.filter(bill => bill.category === "credit").forEach((card, index) => {
-            const ctx = document.getElementById(`cardChart${index}`);
-            if (ctx) {
-              const payoffData = visualizePayoff(card.amount, card.apr || 15, 36, extraPayment);
-              const newChart = new Chart(ctx.getContext("2d"), {
-                type: 'line',
-                data: {
-                  labels: payoffData.map(d => `Month ${d.month}`),
-                  datasets: [{
-                    label: `${card.name} Payoff`,
-                    data: payoffData.map(d => d.balance),
-                    fill: false,
-                    borderColor: '#3b82f6'
-                  }]
-                },
-                options: { responsive: true, scales: { y: { beginAtZero: true } } }
-              });
-              newCardCharts[index] = newChart;
-            }
-          });
-
-          setCardCharts(newCardCharts);
-        }, [bills, extraPayment]);
+        }, [creditCards, extraPayment, strategy]);
 
         const addCreditCard = (e) => {
           e.preventDefault();
@@ -744,6 +740,14 @@
                   />
                 </div>
               </div>
+              {creditCards.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold mb-2">Payoff Visualization</h3>
+                  <div className="bg-white p-4 rounded shadow">
+                    <canvas id={`chart-${creditCards[0].name}`}></canvas>
+                  </div>
+                </div>
+              )}
               <form onSubmit={addCreditCard} className="flex flex-wrap gap-2 mb-4">
                 <input 
                   placeholder="Card Name" 
