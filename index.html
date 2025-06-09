@@ -503,18 +503,26 @@
           }
         }, [creditCards, extraPayment, strategy]);
 
-        const addCreditCard = (e) => {
-          e.preventDefault();
-          const balance = parseFloat(newCreditCard.balance);
-          const limit = parseFloat(newCreditCard.limit);
-          const apr = parseFloat(newCreditCard.apr);
+        const updateMonthlyPayment = (cardId, amount) => {
+          setMonthlyPayments(prev => ({
+            ...prev,
+            [cardId]: amount
+          }));
+        };
 
-          if (!newCreditCard.name || isNaN(balance) || isNaN(limit) || isNaN(apr)) {
-            return alert("Please enter valid data for all fields.");
-          }
-
-          setCreditCards([...creditCards, { ...newCreditCard, balance, limit, apr }]);
-          setNewCreditCard({ name: "", balance: "", limit: "", apr: "" });
+        const addCreditCard = () => {
+          if (!newCreditCard.name || !newCreditCard.balance) return;
+          
+          const card = {
+            id: Date.now().toString(), // Add unique ID
+            name: newCreditCard.name,
+            balance: parseFloat(newCreditCard.balance),
+            apr: parseFloat(newCreditCard.apr) || 0
+          };
+          
+          setCreditCards([...creditCards, card]);
+          setNewCreditCard({ name: '', balance: '', apr: '' });
+          setShowAddCardModal(false);
         };
 
         const deleteCreditCard = (index) => {
@@ -766,14 +774,6 @@
           }
         };
 
-        // Monthly payment tracking
-        const updateMonthlyPayment = (cardId, amount) => {
-          setMonthlyPayments(prev => ({
-            ...prev,
-            [cardId]: amount
-          }));
-        };
-
         // Add useEffect for autosave
         useEffect(() => {
           if (autosaveEnabled) {
@@ -909,8 +909,8 @@
               <div className="card p-6 mb-6">
                 <h2 className="text-xl font-semibold mb-4 text-gray-800">Credit Cards</h2>
                 <div className="space-y-4">
-                  {creditCards.map((card, index) => (
-                    <div key={index} className="bg-white p-4 rounded-lg shadow-sm">
+                  {creditCards.map((card) => (
+                    <div key={card.id} className="bg-white p-4 rounded-lg shadow-sm">
                       <div className="flex justify-between items-start">
                         <div>
                           <h3 className="font-medium">{card.name}</h3>
@@ -932,13 +932,13 @@
                           </div>
                           <div className="flex space-x-2">
                             <button
-                              onClick={() => editCreditCard(index)}
+                              onClick={() => editCreditCard(card.id)}
                               className="text-blue-600 hover:text-blue-700"
                             >
                               Edit
                             </button>
                             <button
-                              onClick={() => deleteCreditCard(index)}
+                              onClick={() => deleteCreditCard(card.id)}
                               className="text-red-600 hover:text-red-700"
                             >
                               Delete

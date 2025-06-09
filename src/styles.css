@@ -1,0 +1,89 @@
+:root {
+  --primary-orange: #FF6B35;
+  --secondary-orange: #FF8C61;
+  --accent-blue: #4A90E2;
+  --accent-green: #2ECC71;
+  --dark-orange: #E85D2C;
+  --light-orange: #FFE4D6;
+  --text-dark: #2D3748;
+  --text-light: #F7FAFC;
+}
+
+.dark-mode {
+  background-color: #1a1a1a;
+  color: var(--primary-orange);
+}
+
+.dark-mode .card {
+  background-color: #2d2d2d;
+  border-color: #404040;
+}
+
+.dark-mode .text-gray-600 {
+  color: var(--secondary-orange);
+}
+
+.dark-mode .text-gray-700 {
+  color: var(--primary-orange);
+}
+
+.dark-mode .text-gray-800 {
+  color: var(--primary-orange);
+}
+
+.dark-mode .input-field {
+  background-color: #2d2d2d;
+  border-color: #404040;
+  color: var(--text-light);
+}
+
+.dark-mode .input-field:focus {
+  border-color: var(--primary-orange);
+}
+
+.dark-mode .bg-gray-50 {
+  background-color: #2d2d2d;
+}
+
+.dark-mode .bg-white {
+  background-color: #2d2d2d;
+}
+
+.dark-mode .btn {
+  background-color: var(--primary-orange);
+  color: var(--text-light);
+}
+
+.dark-mode .btn:hover {
+  background-color: var(--dark-orange);
+}
+
+.dark-mode .btn-secondary {
+  background-color: var(--secondary-orange);
+}
+
+.dark-mode .btn-secondary:hover {
+  background-color: var(--dark-orange);
+}
+
+.dark-mode .form-checkbox {
+  border-color: var(--primary-orange);
+}
+
+.dark-mode .form-checkbox:checked {
+  background-color: var(--primary-orange);
+}
+
+.dark-mode .text-blue-600 {
+  color: var(--secondary-orange);
+}
+
+.dark-mode .text-red-600 {
+  color: #ff6b6b;
+}
+
+.dark-mode .text-green-600 {
+  color: var(--accent-green);
+}
+
+/* Rest of your existing styles */ 

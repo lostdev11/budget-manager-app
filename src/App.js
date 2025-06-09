@@ -150,7 +150,10 @@ const BudgetApp = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="card p-4">
             <h2 className="text-xl font-bold mb-4">Monthly Income</h2>
+            <label htmlFor="monthly-income" className="sr-only">Monthly Income</label>
             <input
+              id="monthly-income"
+              name="monthlyIncome"
               type="number"
               value={income}
               onChange={(e) => setIncome(parseFloat(e.target.value) || 0)}
@@ -181,8 +184,10 @@ const BudgetApp = () => {
                   <p>Balance: ${card.balance.toFixed(2)}</p>
                   <p>Limit: ${card.limit.toFixed(2)}</p>
                   <div className="mt-2">
-                    <label className="block text-sm">Monthly Payment:</label>
+                    <label htmlFor={`monthly-payment-${card.id}`} className="block text-sm">Monthly Payment:</label>
                     <input
+                      id={`monthly-payment-${card.id}`}
+                      name={`monthlyPayment-${card.id}`}
                       key={`payment-${card.id}-${index}`}
                       type="number"
                       value={monthlyPayments[card.id] ?? ''}
@@ -224,21 +229,30 @@ const BudgetApp = () => {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
             <div className="bg-white p-4 rounded-lg w-96">
               <h3 className="text-xl font-bold mb-4">Add Credit Card</h3>
+              <label htmlFor="new-card-name" className="block text-sm sr-only">Card Name</label>
               <input
+                id="new-card-name"
+                name="newCardName"
                 type="text"
                 value={newCreditCard.name}
                 onChange={(e) => setNewCreditCard({ ...newCreditCard, name: e.target.value })}
                 className="input-field w-full mb-2"
                 placeholder="Card Name"
               />
+              <label htmlFor="new-card-balance" className="block text-sm sr-only">Current Balance</label>
               <input
+                id="new-card-balance"
+                name="newCardBalance"
                 type="number"
                 value={newCreditCard.balance}
                 onChange={(e) => setNewCreditCard({ ...newCreditCard, balance: e.target.value })}
                 className="input-field w-full mb-2"
                 placeholder="Current Balance"
               />
+              <label htmlFor="new-card-limit" className="block text-sm sr-only">Credit Limit</label>
               <input
+                id="new-card-limit"
+                name="newCardLimit"
                 type="number"
                 value={newCreditCard.limit}
                 onChange={(e) => setNewCreditCard({ ...newCreditCard, limit: e.target.value })}
@@ -267,21 +281,30 @@ const BudgetApp = () => {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
             <div className="bg-white p-4 rounded-lg w-96">
               <h3 className="text-xl font-bold mb-4">Edit Credit Card</h3>
+              <label htmlFor="edit-card-name" className="block text-sm sr-only">Card Name</label>
               <input
+                id="edit-card-name"
+                name="editCardName"
                 type="text"
                 value={editingCard.name}
                 onChange={(e) => setEditingCard({ ...editingCard, name: e.target.value })}
                 className="input-field w-full mb-2"
                 placeholder="Card Name"
               />
+              <label htmlFor="edit-card-balance" className="block text-sm sr-only">Current Balance</label>
               <input
+                id="edit-card-balance"
+                name="editCardBalance"
                 type="number"
                 value={editingCard.balance}
                 onChange={(e) => setEditingCard({ ...editingCard, balance: parseFloat(e.target.value) || 0 })}
                 className="input-field w-full mb-2"
                 placeholder="Current Balance"
               />
+              <label htmlFor="edit-card-limit" className="block text-sm sr-only">Credit Limit</label>
               <input
+                id="edit-card-limit"
+                name="editCardLimit"
                 type="number"
                 value={editingCard.limit}
                 onChange={(e) => setEditingCard({ ...editingCard, limit: parseFloat(e.target.value) || 0 })}
@@ -308,8 +331,9 @@ const BudgetApp = () => {
 
         <div className="mt-8">
           <div className="flex items-center space-x-4 mb-4">
-            <label className="flex items-center">
+            <label htmlFor="autosave-toggle" className="flex items-center">
               <input
+                id="autosave-toggle"
                 type="checkbox"
                 checked={autosaveEnabled}
                 onChange={(e) => setAutosaveEnabled(e.target.checked)}
