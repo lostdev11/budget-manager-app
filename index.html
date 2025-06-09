@@ -54,6 +54,7 @@
 
       const BudgetApp = () => {
         const [income, setIncome] = useState(localStorage.getItem("income") || "");
+        const [expenses, setExpenses] = useState([]);
         const [bills, setBills] = useState(JSON.parse(localStorage.getItem("bills")) || []);
         const [subscriptions, setSubscriptions] = useState(JSON.parse(localStorage.getItem("subscriptions")) || []);
         const [savings, setSavings] = useState(JSON.parse(localStorage.getItem("savings")) || []);
