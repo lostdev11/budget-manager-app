@@ -14,11 +14,22 @@ const BudgetApp = () => {
   const [editingCard, setEditingCard] = useState(null);
   const [autosaveEnabled, setAutosaveEnabled] = useState(true);
   const [lastSaved, setLastSaved] = useState(null);
+  const [savedBudgets, setSavedBudgets] = useState([]);
+  const [currentBudgetName, setCurrentBudgetName] = useState('Default Budget');
 
   useEffect(() => {
     // Load data from localStorage
     const savedData = localStorage.getItem('budgetData');
-    if (savedData) {
+    const storedBudgets = localStorage.getItem('savedBudgets');
+    if (storedBudgets) {
+      setSavedBudgets(JSON.parse(storedBudgets));
+    }
+    const lastLoadedBudget = localStorage.getItem('lastLoadedBudget');
+
+    if (lastLoadedBudget) {
+      setCurrentBudgetName(lastLoadedBudget);
+      loadBudget(lastLoadedBudget, false); // Load the last active budget without re-setting lastLoadedBudget
+    } else if (savedData) {
       const data = JSON.parse(savedData);
       setIncome(data.income || 0);
       setExpenses(data.expenses || []);
@@ -39,10 +50,15 @@ const BudgetApp = () => {
         monthlyPayments,
         darkMode
       };
-      localStorage.setItem('budgetData', JSON.stringify(data));
+      localStorage.setItem(`budget_${currentBudgetName}`, JSON.stringify(data));
+      localStorage.setItem('lastLoadedBudget', currentBudgetName);
       setLastSaved(new Date().toLocaleTimeString());
     }
-  }, [income, expenses, bills, creditCards, monthlyPayments, darkMode, autosaveEnabled]);
+  }, [income, expenses, bills, creditCards, monthlyPayments, darkMode, autosaveEnabled, currentBudgetName]);
+
+  useEffect(() => {
+    localStorage.setItem('savedBudgets', JSON.stringify(savedBudgets));
+  }, [savedBudgets]);
 
   const addExpense = (expense) => {
     setExpenses([...expenses, { ...expense, id: Date.now() }]);
@@ -103,6 +119,63 @@ const BudgetApp = () => {
     const newPayments = { ...monthlyPayments };
     delete newPayments[cardId];
     setMonthlyPayments(newPayments);
+  };
+
+  const saveBudget = (name) => {
+    if (!name) {
+      alert('Please enter a name for your budget.');
+      return;
+    }
+    const data = {
+      income,
+      expenses,
+      bills,
+      creditCards,
+      monthlyPayments,
+      darkMode
+    };
+    localStorage.setItem(`budget_${name}`, JSON.stringify(data));
+    if (!savedBudgets.includes(name)) {
+      setSavedBudgets([...savedBudgets, name]);
+    }
+    setCurrentBudgetName(name);
+    alert(`Budget '${name}' saved!`);
+  };
+
+  const loadBudget = (name, setAsLastLoaded = true) => {
+    const savedData = localStorage.getItem(`budget_${name}`);
+    if (savedData) {
+      const data = JSON.parse(savedData);
+      setIncome(data.income || 0);
+      setExpenses(data.expenses || []);
+      setBills(data.bills || []);
+      setCreditCards(data.creditCards || []);
+      setMonthlyPayments(data.monthlyPayments || {});
+      setDarkMode(data.darkMode || false);
+      setCurrentBudgetName(name);
+      if (setAsLastLoaded) {
+        localStorage.setItem('lastLoadedBudget', name);
+      }
+      alert(`Budget '${name}' loaded!`);
+    } else {
+      alert(`Budget '${name}' not found.`);
+    }
+  };
+
+  const deleteBudget = (name) => {
+    if (window.confirm(`Are you sure you want to delete budget '${name}'?`)) {
+      localStorage.removeItem(`budget_${name}`);
+      setSavedBudgets(savedBudgets.filter(b => b !== name));
+      if (currentBudgetName === name) {
+        setCurrentBudgetName('Default Budget'); // Switch to default if current is deleted
+        setIncome(0);
+        setExpenses([]);
+        setBills([]);
+        setCreditCards([]);
+        setMonthlyPayments({});
+      }
+      alert(`Budget '${name}' deleted.`);
+    }
   };
 
   const shareBudget = () => {
@@ -345,6 +418,55 @@ const BudgetApp = () => {
               <span className="text-sm text-gray-600">
                 Last saved: {lastSaved}
               </span>
+            )}
+          </div>
+
+          <div className="card p-4 mt-4">
+            <h2 className="text-xl font-bold mb-4">Manage Budgets</h2>
+            <p className="text-gray-700 mb-2">Current Budget: <span className="font-semibold text-primary-orange">{currentBudgetName}</span></p>
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 mb-4">
+              <input
+                type="text"
+                id="new-budget-name"
+                placeholder="Enter new budget name"
+                className="input-field flex-grow"
+              />
+              <button
+                onClick={() => saveBudget(document.getElementById('new-budget-name').value)}
+                className="btn btn-primary"
+              >
+                Save Current Budget
+              </button>
+            </div>
+
+            {savedBudgets.length > 0 && (
+              <div className="mt-4">
+                <label htmlFor="load-budget-select" className="block text-sm font-medium text-gray-700">Load Saved Budget:</label>
+                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 mt-1">
+                  <select
+                    id="load-budget-select"
+                    className="input-field flex-grow"
+                    defaultValue=""
+                  >
+                    <option value="" disabled>Select a budget</option>
+                    {savedBudgets.map(name => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => loadBudget(document.getElementById('load-budget-select').value)}
+                    className="btn btn-secondary"
+                  >
+                    Load Budget
+                  </button>
+                  <button
+                    onClick={() => deleteBudget(document.getElementById('load-budget-select').value)}
+                    className="btn bg-red-600 hover:bg-red-700"
+                  >
+                    Delete Selected
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>
