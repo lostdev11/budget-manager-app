@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Budget Manager</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
     <!-- Load React and ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -80,6 +81,9 @@
         const [extraPayment, setExtraPayment] = useState("");
         const [chartInstance, setChartInstance] = useState(null);
         const [editingPayoffItem, setEditingPayoffItem] = useState(null);
+        const [autosaveEnabled, setAutosaveEnabled] = useState(true);
+        const [lastSaved, setLastSaved] = useState(null);
+        const [monthlyPayments, setMonthlyPayments] = useState({});
 
         const sortCards = (cards) => {
           return strategy === "snowball"
@@ -529,6 +533,102 @@
           localStorage.setItem("savedBudgets", JSON.stringify(updatedBudgets));
         };
 
+        // Autosave function
+        const autosave = () => {
+          if (!autosaveEnabled) return;
+          const dataToSave = {
+            income,
+            expenses: totalExpenses,
+            savings,
+            creditCards,
+            bills,
+            payoffItems,
+            monthlyPayments,
+            timestamp: new Date().toISOString()
+          };
+          localStorage.setItem('budgetData', JSON.stringify(dataToSave));
+          setLastSaved(new Date());
+        };
+
+        // Load function
+        const loadData = () => {
+          const savedData = localStorage.getItem('budgetData');
+          if (savedData) {
+            const data = JSON.parse(savedData);
+            setIncome(data.income || 0);
+            setExpenses(data.expenses || []);
+            setSavings(data.savings || 0);
+            setCreditCards(data.creditCards || []);
+            setBills(data.bills || []);
+            setPayoffItems(data.payoffItems || []);
+            setMonthlyPayments(data.monthlyPayments || {});
+            setLastSaved(new Date(data.timestamp));
+          }
+        };
+
+        // Share function
+        const shareData = () => {
+          const dataToShare = {
+            income,
+            expenses: totalExpenses,
+            savings,
+            creditCards,
+            bills,
+            payoffItems,
+            monthlyPayments,
+            timestamp: new Date().toISOString()
+          };
+          const shareString = btoa(JSON.stringify(dataToShare));
+          const shareUrl = `${window.location.origin}${window.location.pathname}?data=${shareString}`;
+          navigator.clipboard.writeText(shareUrl).then(() => {
+            alert('Share link copied to clipboard!');
+          });
+        };
+
+        // Load from URL function
+        const loadFromUrl = () => {
+          const urlParams = new URLSearchParams(window.location.search);
+          const sharedData = urlParams.get('data');
+          if (sharedData) {
+            try {
+              const data = JSON.parse(atob(sharedData));
+              setIncome(data.income || 0);
+              setExpenses(data.expenses || []);
+              setSavings(data.savings || 0);
+              setCreditCards(data.creditCards || []);
+              setBills(data.bills || []);
+              setPayoffItems(data.payoffItems || []);
+              setMonthlyPayments(data.monthlyPayments || {});
+              setLastSaved(new Date(data.timestamp));
+              window.history.replaceState({}, document.title, window.location.pathname);
+            } catch (error) {
+              alert('Error loading shared data. The link may be invalid.');
+            }
+          }
+        };
+
+        // Monthly payment tracking
+        const updateMonthlyPayment = (cardId, amount) => {
+          setMonthlyPayments(prev => ({
+            ...prev,
+            [cardId]: amount
+          }));
+        };
+
+        // Add useEffect for autosave
+        useEffect(() => {
+          if (autosaveEnabled) {
+            const saveTimeout = setTimeout(autosave, 1000);
+            return () => clearTimeout(saveTimeout);
+          }
+        }, [income, expenses, savings, creditCards, bills, payoffItems, monthlyPayments, autosaveEnabled]);
+
+        // Add useEffect for initial load
+        useEffect(() => {
+          loadData();
+          loadFromUrl();
+        }, []);
+
         return (
           <div className="max-w-5xl mx-auto">
             <div className="flex justify-between items-center mb-4">
@@ -624,9 +724,34 @@
               </div>
             )}
 
-            <h1 className="text-2xl font-bold mb-4">💰 Budget Manager</h1>
+            <h1 className="text-2xl font-bold mb-4">Budget Manager</h1>
             
             <InputForm label="Monthly Income ($)" type="number" value={income} onChange={e => setIncome(e.target.value)} />
+
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center space-x-4">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={autosaveEnabled}
+                    onChange={(e) => setAutosaveEnabled(e.target.checked)}
+                    className="form-checkbox"
+                  />
+                  <span>Autosave</span>
+                </label>
+                {lastSaved && (
+                  <span className="text-sm text-gray-500">
+                    Last saved: {lastSaved.toLocaleTimeString()}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={shareData}
+                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+              >
+                Share Budget
+              </button>
+            </div>
 
             <div className="mb-6">
               <h2 className="text-xl font-semibold mb-4">Bills & Subscriptions</h2>
@@ -990,90 +1115,41 @@
                   <h3 className="font-semibold mb-2">Credit Cards</h3>
                   <div className="space-y-2">
                     {creditCards.map((card, index) => (
-                      <div key={index} className="border p-2 rounded">
-                        {editingCard && editingCard.index === index ? (
-                          <form onSubmit={saveEdit} className="space-y-2">
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <label className="block text-sm font-medium">Card Name:</label>
-                                <input 
-                                  type="text" 
-                                  value={editingCard.name} 
-                                  onChange={e => setEditingCard({ ...editingCard, name: e.target.value })}
-                                  className="w-full p-2 border rounded"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium">Balance:</label>
-                                <input 
-                                  type="number" 
-                                  value={editingCard.balance} 
-                                  onChange={e => setEditingCard({ ...editingCard, balance: e.target.value })}
-                                  className="w-full p-2 border rounded"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium">Credit Limit:</label>
-                                <input 
-                                  type="number" 
-                                  value={editingCard.limit} 
-                                  onChange={e => setEditingCard({ ...editingCard, limit: e.target.value })}
-                                  className="w-full p-2 border rounded"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium">APR %:</label>
-                                <input 
-                                  type="number" 
-                                  value={editingCard.apr} 
-                                  onChange={e => setEditingCard({ ...editingCard, apr: e.target.value })}
-                                  className="w-full p-2 border rounded"
-                                />
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2 mt-2">
-                              <input
-                                type="checkbox"
-                                id="addToPayoff"
-                                checked={editingCard.addToPayoff || false}
-                                onChange={e => setEditingCard({ ...editingCard, addToPayoff: e.target.checked })}
-                                className="h-4 w-4"
-                              />
-                              <label htmlFor="addToPayoff" className="text-sm font-medium">
-                                Add to Payoff Plans
+                      <div key={index} className="bg-white p-4 rounded shadow mb-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="text-lg font-semibold">{card.name}</h3>
+                            <p>Balance: ${card.balance}</p>
+                            <p>Credit Limit: ${card.limit}</p>
+                            <p>APR: {card.apr}%</p>
+                            <div className="mt-2">
+                              <label className="block text-sm font-medium text-gray-700">
+                                Monthly Payment
                               </label>
-                            </div>
-                            <div className="flex gap-2">
-                              <button type="submit" className="bg-green-500 text-white px-3 py-1 rounded">Save</button>
-                              <button type="button" onClick={cancelEdit} className="bg-gray-500 text-white px-3 py-1 rounded">Cancel</button>
-                            </div>
-                          </form>
-                        ) : (
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <div className="font-medium">{card.name}</div>
-                              <div className="text-sm">
-                                Balance: ${parseFloat(card.balance).toFixed(2)} / ${parseFloat(card.limit).toFixed(2)}
-                                <br />
-                                APR: {card.apr}%
-                              </div>
-                            </div>
-                            <div className="flex gap-2">
-                              <button 
-                                onClick={() => editCreditCard(index)} 
-                                className="text-blue-500"
-                              >
-                                Edit
-                              </button>
-                              <button 
-                                onClick={() => deleteCreditCard(index)} 
-                                className="text-red-500"
-                              >
-                                Delete
-                              </button>
+                              <input
+                                type="number"
+                                value={monthlyPayments[card.id] || ''}
+                                onChange={(e) => updateMonthlyPayment(card.id, parseFloat(e.target.value) || 0)}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                placeholder="Enter monthly payment"
+                              />
                             </div>
                           </div>
-                        )}
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => editCreditCard(index)}
+                              className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => deleteCreditCard(index)}
+                              className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1092,6 +1168,32 @@
                 </div>
                 <div className="bg-white p-4 rounded shadow">
                   <canvas id="budgetChart"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded shadow mb-4">
+              <h2 className="text-xl font-bold mb-4">Monthly Summary</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <h3 className="font-semibold">Total Income</h3>
+                  <p className="text-green-600">${income}</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold">Total Expenses</h3>
+                  <p className="text-red-600">${totalExpenses}</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold">Total Credit Card Payments</h3>
+                  <p className="text-blue-600">
+                    ${Object.values(monthlyPayments).reduce((sum, payment) => sum + (payment || 0), 0)}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold">Remaining</h3>
+                  <p className="text-gray-600">
+                    ${income - totalExpenses - Object.values(monthlyPayments).reduce((sum, payment) => sum + (payment || 0), 0)}
+                  </p>
                 </div>
               </div>
             </div>
