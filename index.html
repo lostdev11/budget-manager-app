@@ -12,6 +12,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
     <!-- Load Tailwind CSS -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Load Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
       .loading {
         display: flex;
@@ -21,9 +23,22 @@
         font-size: 1.5rem;
         color: #4B5563;
       }
+      body {
+        transition: background-color 0.3s, color 0.3s;
+      }
+      .dark-mode {
+        background-color: #1a1a1a;
+        color: #ffffff;
+      }
+      .btn {
+        transition: transform 0.2s;
+      }
+      .btn:hover {
+        transform: scale(1.05);
+      }
     </style>
   </head>
-  <body class="bg-gray-100 text-gray-800">
+  <body class="bg-gray-100 dark-mode">
     <div id="root">
       <div class="loading">Loading Budget Manager...</div>
     </div>
@@ -83,6 +98,12 @@
         const [autosaveEnabled, setAutosaveEnabled] = useState(true);
         const [lastSaved, setLastSaved] = useState(null);
         const [monthlyPayments, setMonthlyPayments] = useState({});
+        const [darkMode, setDarkMode] = useState(false);
+
+        const toggleDarkMode = () => {
+          setDarkMode(!darkMode);
+          document.body.classList.toggle('dark-mode');
+        };
 
         const sortCards = (cards) => {
           return strategy === "snowball"
@@ -629,570 +650,578 @@
         }, []);
 
         return (
-          <div className="max-w-5xl mx-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h1 className="text-2xl font-bold">Budget Manager</h1>
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => setShowSaveModal(true)}
+          <div className="container mx-auto p-4">
+            <header className="flex justify-between items-center mb-4">
+              <h1 className="text-2xl font-bold text-blue-600">Budget Manager</h1>
+              <button onClick={toggleDarkMode} className="btn bg-orange-500 text-white px-4 py-2 rounded">
+                {darkMode ? <i className="fas fa-sun"></i> : <i className="fas fa-moon"></i>}
+              </button>
+            </header>
+            <div className="max-w-5xl mx-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h1 className="text-2xl font-bold">Budget Manager</h1>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setShowSaveModal(true)}
+                    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                  >
+                    Save Budget
+                  </button>
+                  <button 
+                    onClick={() => setShowLoadModal(true)}
+                    className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                  >
+                    Load Budget
+                  </button>
+                </div>
+              </div>
+
+              {/* Save Budget Modal */}
+              {showSaveModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                  <div className="bg-white p-6 rounded-lg w-96">
+                    <h2 className="text-xl font-semibold mb-4">Save Budget</h2>
+                    <input
+                      type="text"
+                      value={budgetName}
+                      onChange={(e) => setBudgetName(e.target.value)}
+                      placeholder="Enter budget name"
+                      className="w-full p-2 border rounded mb-4"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => setShowSaveModal(false)}
+                        className="bg-gray-500 text-white px-4 py-2 rounded"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={saveBudget}
+                        className="bg-blue-500 text-white px-4 py-2 rounded"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Load Budget Modal */}
+              {showLoadModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                  <div className="bg-white p-6 rounded-lg w-96">
+                    <h2 className="text-xl font-semibold mb-4">Load Budget</h2>
+                    {savedBudgets.length === 0 ? (
+                      <p className="text-gray-500">No saved budgets found</p>
+                    ) : (
+                      <div className="space-y-2 max-h-96 overflow-y-auto">
+                        {savedBudgets.map((budget, index) => (
+                          <div key={index} className="flex justify-between items-center p-2 border rounded">
+                            <div>
+                              <div className="font-medium">{budget.name}</div>
+                              <div className="text-sm text-gray-500">Saved on {budget.date}</div>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => loadBudget(budget)}
+                                className="text-blue-500 hover:text-blue-600"
+                              >
+                                Load
+                              </button>
+                              <button
+                                onClick={() => deleteSavedBudget(index)}
+                                className="text-red-500 hover:text-red-600"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        onClick={() => setShowLoadModal(false)}
+                        className="bg-gray-500 text-white px-4 py-2 rounded"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <h1 className="text-2xl font-bold mb-4">Budget Manager</h1>
+              
+              <InputForm label="Monthly Income ($)" type="number" value={income} onChange={e => setIncome(e.target.value)} />
+
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center space-x-4">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={autosaveEnabled}
+                      onChange={(e) => setAutosaveEnabled(e.target.checked)}
+                      className="form-checkbox"
+                    />
+                    <span>Autosave</span>
+                  </label>
+                  {lastSaved && (
+                    <span className="text-sm text-gray-500">
+                      Last saved: {lastSaved.toLocaleTimeString()}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={shareData}
                   className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
                 >
-                  Save Budget
-                </button>
-                <button 
-                  onClick={() => setShowLoadModal(true)}
-                  className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-                >
-                  Load Budget
+                  Share Budget
                 </button>
               </div>
-            </div>
 
-            {/* Save Budget Modal */}
-            {showSaveModal && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                <div className="bg-white p-6 rounded-lg w-96">
-                  <h2 className="text-xl font-semibold mb-4">Save Budget</h2>
-                  <input
-                    type="text"
-                    value={budgetName}
-                    onChange={(e) => setBudgetName(e.target.value)}
-                    placeholder="Enter budget name"
-                    className="w-full p-2 border rounded mb-4"
-                  />
-                  <div className="flex justify-end gap-2">
-                    <button
-                      onClick={() => setShowSaveModal(false)}
-                      className="bg-gray-500 text-white px-4 py-2 rounded"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={saveBudget}
-                      className="bg-blue-500 text-white px-4 py-2 rounded"
-                    >
-                      Save
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Load Budget Modal */}
-            {showLoadModal && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                <div className="bg-white p-6 rounded-lg w-96">
-                  <h2 className="text-xl font-semibold mb-4">Load Budget</h2>
-                  {savedBudgets.length === 0 ? (
-                    <p className="text-gray-500">No saved budgets found</p>
-                  ) : (
-                    <div className="space-y-2 max-h-96 overflow-y-auto">
-                      {savedBudgets.map((budget, index) => (
-                        <div key={index} className="flex justify-between items-center p-2 border rounded">
-                          <div>
-                            <div className="font-medium">{budget.name}</div>
-                            <div className="text-sm text-gray-500">Saved on {budget.date}</div>
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => loadBudget(budget)}
-                              className="text-blue-500 hover:text-blue-600"
-                            >
-                              Load
-                            </button>
-                            <button
-                              onClick={() => deleteSavedBudget(index)}
-                              className="text-red-500 hover:text-red-600"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="mt-4 flex justify-end">
-                    <button
-                      onClick={() => setShowLoadModal(false)}
-                      className="bg-gray-500 text-white px-4 py-2 rounded"
-                    >
-                      Close
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <h1 className="text-2xl font-bold mb-4">Budget Manager</h1>
-            
-            <InputForm label="Monthly Income ($)" type="number" value={income} onChange={e => setIncome(e.target.value)} />
-
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center space-x-4">
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={autosaveEnabled}
-                    onChange={(e) => setAutosaveEnabled(e.target.checked)}
-                    className="form-checkbox"
-                  />
-                  <span>Autosave</span>
-                </label>
-                {lastSaved && (
-                  <span className="text-sm text-gray-500">
-                    Last saved: {lastSaved.toLocaleTimeString()}
-                  </span>
-                )}
-              </div>
-              <button
-                onClick={shareData}
-                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-              >
-                Share Budget
-              </button>
-            </div>
-
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-4">Bills & Subscriptions</h2>
-              <form onSubmit={addItem} className="flex flex-wrap gap-2 mb-4">
-                <select onChange={e => setType(e.target.value)} value={type} className="p-2 border rounded">
-                  <option value="bill">Bill</option>
-                  <option value="subscription">Subscription</option>
-                  <option value="savings">Savings</option>
-                </select>
-                <input 
-                  placeholder="Name" 
-                  value={newItem.name} 
-                  onChange={e => setNewItem({ ...newItem, name: e.target.value })}
-                  className="p-2 border rounded"
-                />
-                <input 
-                  placeholder="Amount" 
-                  type="number" 
-                  value={newItem.amount} 
-                  onChange={e => setNewItem({ ...newItem, amount: e.target.value })}
-                  className="p-2 border rounded"
-                />
-                <input 
-                  placeholder="Date" 
-                  type="date" 
-                  value={newItem.date} 
-                  onChange={e => setNewItem({ ...newItem, date: e.target.value })}
-                  className="p-2 border rounded"
-                />
-                <select 
-                  value={newItem.category} 
-                  onChange={e => setNewItem({ ...newItem, category: e.target.value })}
-                  className="p-2 border rounded"
-                >
-                  <option value="">Select Category</option>
-                  {categories.map((cat, index) => (
-                    <option key={index} value={cat}>{cat}</option>
-                  ))}
-                  <option value="new">+ Add New Category</option>
-                </select>
-                {newItem.category === 'new' && (
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold mb-4">Bills & Subscriptions</h2>
+                <form onSubmit={addItem} className="flex flex-wrap gap-2 mb-4">
+                  <select onChange={e => setType(e.target.value)} value={type} className="p-2 border rounded">
+                    <option value="bill">Bill</option>
+                    <option value="subscription">Subscription</option>
+                    <option value="savings">Savings</option>
+                  </select>
                   <input 
-                    placeholder="New Category" 
-                    value={newCategory} 
-                    onChange={e => setNewCategory(e.target.value)}
+                    placeholder="Name" 
+                    value={newItem.name} 
+                    onChange={e => setNewItem({ ...newItem, name: e.target.value })}
                     className="p-2 border rounded"
                   />
-                )}
-                <button type="submit" className="bg-green-500 text-white px-4 py-2 rounded">Add</button>
-              </form>
+                  <input 
+                    placeholder="Amount" 
+                    type="number" 
+                    value={newItem.amount} 
+                    onChange={e => setNewItem({ ...newItem, amount: e.target.value })}
+                    className="p-2 border rounded"
+                  />
+                  <input 
+                    placeholder="Date" 
+                    type="date" 
+                    value={newItem.date} 
+                    onChange={e => setNewItem({ ...newItem, date: e.target.value })}
+                    className="p-2 border rounded"
+                  />
+                  <select 
+                    value={newItem.category} 
+                    onChange={e => setNewItem({ ...newItem, category: e.target.value })}
+                    className="p-2 border rounded"
+                  >
+                    <option value="">Select Category</option>
+                    {categories.map((cat, index) => (
+                      <option key={index} value={cat}>{cat}</option>
+                    ))}
+                    <option value="new">+ Add New Category</option>
+                  </select>
+                  {newItem.category === 'new' && (
+                    <input 
+                      placeholder="New Category" 
+                      value={newCategory} 
+                      onChange={e => setNewCategory(e.target.value)}
+                      className="p-2 border rounded"
+                    />
+                  )}
+                  <button type="submit" className="bg-green-500 text-white px-4 py-2 rounded">Add</button>
+                </form>
 
-              <div className="space-y-2">
-                {bills.map((bill, index) => (
-                  <div key={index} className="border p-4 rounded">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <div className="font-medium">{bill.name}</div>
-                        <div className="text-sm text-gray-600">${parseFloat(bill.amount).toFixed(2)} - {bill.category}</div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={() => {
-                            const newItem = {
-                              name: bill.name,
-                              amount: parseFloat(bill.amount),
-                              period: 1,
-                              apr: 0,
-                              monthlyPayment: parseFloat(bill.amount).toFixed(2),
-                              totalInterest: "0.00",
-                              totalAmount: parseFloat(bill.amount).toFixed(2)
-                            };
-                            setPayoffItems([...payoffItems, newItem]);
-                          }}
-                          className="text-blue-500"
-                        >
-                          Add to Payoff
-                        </button>
-                        <button 
-                          onClick={() => deleteItem(index, "bill")} 
-                          className="text-red-500"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                    <div className="mt-2 p-2 bg-gray-50 rounded">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium mb-1">Payoff Amount</label>
-                          <input 
-                            type="number" 
-                            value={billPayoffAmount[index] || ''} 
-                            onChange={e => handleBillPayoffChange(index, e.target.value, billPayoffPeriod[index] || 1)}
-                            placeholder="Enter amount to pay off"
-                            className="w-full p-2 border rounded"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium mb-1">Payoff Period (months)</label>
-                          <select 
-                            value={billPayoffPeriod[index] || 1} 
-                            onChange={e => handleBillPayoffChange(index, billPayoffAmount[index] || 0, parseInt(e.target.value))}
-                            className="w-full p-2 border rounded"
-                          >
-                            <option value="1">1 month</option>
-                            <option value="2">2 months</option>
-                            <option value="3">3 months</option>
-                            <option value="6">6 months</option>
-                            <option value="12">12 months</option>
-                            <option value="custom">Custom</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium mb-1">APR %</label>
-                          <input 
-                            type="number" 
-                            value={billPayoffAPR[index] || ''} 
-                            onChange={e => handleBillPayoffChange(index, billPayoffAmount[index] || 0, billPayoffPeriod[index] || 1, e.target.value)}
-                            placeholder="Enter APR"
-                            className="w-full p-2 border rounded"
-                          />
-                        </div>
-                      </div>
-                      {billPayoffAmount[index] && (
-                        <div className="mt-2 p-2 bg-white rounded border">
-                          <h4 className="font-medium mb-1">Payoff Plan</h4>
-                          <div className="text-sm">
-                            <p>Monthly Payment: ${calculateMonthlyPayment(
-                              parseFloat(billPayoffAmount[index]),
-                              parseFloat(billPayoffAPR[index] || 0),
-                              parseInt(billPayoffPeriod[index])
-                            ).toFixed(2)}</p>
-                            <p>Total Interest: ${calculateTotalInterest(
-                              parseFloat(billPayoffAmount[index]),
-                              calculateMonthlyPayment(
-                                parseFloat(billPayoffAmount[index]),
-                                parseFloat(billPayoffAPR[index] || 0),
-                                parseInt(billPayoffPeriod[index])
-                              ),
-                              parseInt(billPayoffPeriod[index])
-                            ).toFixed(2)}</p>
-                            <p>Total Amount: ${(parseFloat(billPayoffAmount[index]) + calculateTotalInterest(
-                              parseFloat(billPayoffAmount[index]),
-                              calculateMonthlyPayment(
-                                parseFloat(billPayoffAmount[index]),
-                                parseFloat(billPayoffAPR[index] || 0),
-                                parseInt(billPayoffPeriod[index])
-                              ),
-                              parseInt(billPayoffPeriod[index])
-                            )).toFixed(2)}</p>
-                            <p>Period: {billPayoffPeriod[index]} months</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-4">Custom Payoff Plans</h2>
-              <form onSubmit={addPayoffItem} className="flex flex-wrap gap-2 mb-4">
-                <input 
-                  type="number" 
-                  value={customPayoffAmount} 
-                  onChange={e => setCustomPayoffAmount(e.target.value)}
-                  placeholder="Enter amount to pay off"
-                  className="p-2 border rounded"
-                />
-                <input 
-                  type="number" 
-                  value={customPayoffPeriod} 
-                  onChange={e => setCustomPayoffPeriod(e.target.value)}
-                  placeholder="Enter months to pay off"
-                  className="p-2 border rounded"
-                />
-                <input 
-                  type="number" 
-                  value={customPayoffAPR} 
-                  onChange={e => setCustomPayoffAPR(e.target.value)}
-                  placeholder="Enter APR % (optional)"
-                  className="p-2 border rounded"
-                />
-                <button type="submit" className="bg-green-500 text-white px-4 py-2 rounded">Add Payoff Plan</button>
-              </form>
-
-              <div className="space-y-2">
-                {payoffItems.map((item, index) => (
-                  <div key={index} className="border p-4 rounded">
-                    {editingPayoffItem && editingPayoffItem.index === index ? (
-                      <form onSubmit={savePayoffEdit} className="space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-sm font-medium">Name:</label>
-                            <input 
-                              type="text" 
-                              value={editingPayoffItem.name} 
-                              onChange={e => setEditingPayoffItem({ ...editingPayoffItem, name: e.target.value })}
-                              className="w-full p-2 border rounded"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium">Amount:</label>
-                            <input 
-                              type="number" 
-                              value={editingPayoffItem.amount} 
-                              onChange={e => setEditingPayoffItem({ ...editingPayoffItem, amount: e.target.value })}
-                              className="w-full p-2 border rounded"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium">APR %:</label>
-                            <input 
-                              type="number" 
-                              value={editingPayoffItem.apr} 
-                              onChange={e => setEditingPayoffItem({ ...editingPayoffItem, apr: e.target.value })}
-                              className="w-full p-2 border rounded"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium">Payoff Period:</label>
-                            <select 
-                              value={editingPayoffItem.period} 
-                              onChange={e => setEditingPayoffItem({ ...editingPayoffItem, period: e.target.value })}
-                              className="w-full p-2 border rounded"
-                            >
-                              <option value="1">1 month</option>
-                              <option value="3">3 months</option>
-                              <option value="6">6 months</option>
-                              <option value="12">12 months</option>
-                              <option value="24">24 months (2 years)</option>
-                              <option value="36">36 months (3 years)</option>
-                              <option value="60">60 months (5 years)</option>
-                              <option value="custom">Custom</option>
-                            </select>
-                          </div>
-                          {editingPayoffItem.period === "custom" && (
-                            <div className="col-span-2">
-                              <label className="block text-sm font-medium">Custom Period (months):</label>
-                              <input 
-                                type="number" 
-                                value={editingPayoffItem.customPeriod || 1} 
-                                onChange={e => setEditingPayoffItem({ ...editingPayoffItem, period: e.target.value })}
-                                className="w-full p-2 border rounded"
-                                min="1"
-                              />
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex gap-2">
-                          <button type="submit" className="bg-green-500 text-white px-3 py-1 rounded">Save</button>
-                          <button type="button" onClick={cancelPayoffEdit} className="bg-gray-500 text-white px-3 py-1 rounded">Cancel</button>
-                        </div>
-                      </form>
-                    ) : (
+                <div className="space-y-2">
+                  {bills.map((bill, index) => (
+                    <div key={index} className="border p-4 rounded">
                       <div className="flex justify-between items-start mb-2">
                         <div>
-                          <div className="font-medium">{item.name}</div>
-                          <div className="text-sm text-gray-600">
-                            Principal: ${item.amount.toFixed(2)}<br />
-                            Period: {item.period} months<br />
-                            APR: {item.apr}%<br />
-                            Monthly Payment: ${item.monthlyPayment}<br />
-                            Total Interest: ${item.totalInterest}<br />
-                            Total Amount: ${item.totalAmount}
-                          </div>
+                          <div className="font-medium">{bill.name}</div>
+                          <div className="text-sm text-gray-600">${parseFloat(bill.amount).toFixed(2)} - {bill.category}</div>
                         </div>
                         <div className="flex gap-2">
                           <button 
-                            onClick={() => editPayoffItem(index)} 
+                            onClick={() => {
+                              const newItem = {
+                                name: bill.name,
+                                amount: parseFloat(bill.amount),
+                                period: 1,
+                                apr: 0,
+                                monthlyPayment: parseFloat(bill.amount).toFixed(2),
+                                totalInterest: "0.00",
+                                totalAmount: parseFloat(bill.amount).toFixed(2)
+                              };
+                              setPayoffItems([...payoffItems, newItem]);
+                            }}
                             className="text-blue-500"
                           >
-                            Edit
+                            Add to Payoff
                           </button>
                           <button 
-                            onClick={() => deletePayoffItem(index)} 
+                            onClick={() => deleteItem(index, "bill")} 
                             className="text-red-500"
                           >
                             Delete
                           </button>
                         </div>
                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-4">Credit Cards</h2>
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-1">Payoff Strategy</label>
-                <select 
-                  value={strategy} 
-                  onChange={e => setStrategy(e.target.value)}
-                  className="p-2 border rounded"
-                >
-                  <option value="snowball">Snowball (Lowest Balance First)</option>
-                  <option value="avalanche">Avalanche (Highest APR First)</option>
-                </select>
-                <div className="mt-2">
-                  <label className="block text-sm font-medium mb-1">Extra Monthly Payment ($)</label>
-                  <input 
-                    type="number" 
-                    value={extraPayment} 
-                    onChange={e => setExtraPayment(e.target.value)}
-                    className="p-2 border rounded"
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-              {creditCards.length > 0 && (
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold mb-2">Payoff Visualization</h3>
-                  <div className="bg-white p-4 rounded shadow">
-                    <canvas id={`chart-${creditCards[0].name}`}></canvas>
-                  </div>
-                </div>
-              )}
-              <form onSubmit={addCreditCard} className="flex flex-wrap gap-2 mb-4">
-                <input 
-                  placeholder="Card Name" 
-                  value={newCreditCard.name} 
-                  onChange={e => setNewCreditCard({ ...newCreditCard, name: e.target.value })}
-                  className="p-2 border rounded"
-                />
-                <input 
-                  placeholder="Balance" 
-                  type="number" 
-                  value={newCreditCard.balance} 
-                  onChange={e => setNewCreditCard({ ...newCreditCard, balance: e.target.value })}
-                  className="p-2 border rounded"
-                />
-                <input 
-                  placeholder="Credit Limit" 
-                  type="number" 
-                  value={newCreditCard.limit} 
-                  onChange={e => setNewCreditCard({ ...newCreditCard, limit: e.target.value })}
-                  className="p-2 border rounded"
-                />
-                <input 
-                  placeholder="APR %" 
-                  type="number" 
-                  value={newCreditCard.apr} 
-                  onChange={e => setNewCreditCard({ ...newCreditCard, apr: e.target.value })}
-                  className="p-2 border rounded"
-                />
-                <button type="submit" className="bg-green-500 text-white px-4 py-2 rounded">Add Card</button>
-              </form>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div className="bg-white p-4 rounded shadow">
-                  <h3 className="font-semibold mb-2">Credit Summary</h3>
-                  <p>Total Credit Limit: ${totalCreditLimit.toFixed(2)}</p>
-                  <p>Total Credit Used: ${totalCreditUsed.toFixed(2)}</p>
-                  <p>Available Credit: ${totalAvailableCredit.toFixed(2)}</p>
-                  <p>Credit Utilization: {creditUtilization.toFixed(1)}%</p>
-                </div>
-                <div className="bg-white p-4 rounded shadow">
-                  <h3 className="font-semibold mb-2">Credit Cards</h3>
-                  <div className="space-y-2">
-                    {creditCards.map((card, index) => (
-                      <div key={index} className="bg-white p-4 rounded shadow mb-4">
-                        <div className="flex justify-between items-start">
+                      <div className="mt-2 p-2 bg-gray-50 rounded">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div>
-                            <h3 className="text-lg font-semibold">{card.name}</h3>
-                            <p>Balance: ${card.balance}</p>
-                            <p>Credit Limit: ${card.limit}</p>
-                            <p>APR: {card.apr}%</p>
-                            <div className="mt-2">
-                              <label className="block text-sm font-medium text-gray-700">
-                                Monthly Payment
-                              </label>
-                              <input
-                                type="number"
-                                value={monthlyPayments[card.id] || ''}
-                                onChange={(e) => updateMonthlyPayment(card.id, parseFloat(e.target.value) || 0)}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                placeholder="Enter monthly payment"
-                              />
+                            <label className="block text-sm font-medium mb-1">Payoff Amount</label>
+                            <input 
+                              type="number" 
+                              value={billPayoffAmount[index] || ''} 
+                              onChange={e => handleBillPayoffChange(index, e.target.value, billPayoffPeriod[index] || 1)}
+                              placeholder="Enter amount to pay off"
+                              className="w-full p-2 border rounded"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Payoff Period (months)</label>
+                            <select 
+                              value={billPayoffPeriod[index] || 1} 
+                              onChange={e => handleBillPayoffChange(index, billPayoffAmount[index] || 0, parseInt(e.target.value))}
+                              className="w-full p-2 border rounded"
+                            >
+                              <option value="1">1 month</option>
+                              <option value="2">2 months</option>
+                              <option value="3">3 months</option>
+                              <option value="6">6 months</option>
+                              <option value="12">12 months</option>
+                              <option value="custom">Custom</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">APR %</label>
+                            <input 
+                              type="number" 
+                              value={billPayoffAPR[index] || ''} 
+                              onChange={e => handleBillPayoffChange(index, billPayoffAmount[index] || 0, billPayoffPeriod[index] || 1, e.target.value)}
+                              placeholder="Enter APR"
+                              className="w-full p-2 border rounded"
+                            />
+                          </div>
+                        </div>
+                        {billPayoffAmount[index] && (
+                          <div className="mt-2 p-2 bg-white rounded border">
+                            <h4 className="font-medium mb-1">Payoff Plan</h4>
+                            <div className="text-sm">
+                              <p>Monthly Payment: ${calculateMonthlyPayment(
+                                parseFloat(billPayoffAmount[index]),
+                                parseFloat(billPayoffAPR[index] || 0),
+                                parseInt(billPayoffPeriod[index])
+                              ).toFixed(2)}</p>
+                              <p>Total Interest: ${calculateTotalInterest(
+                                parseFloat(billPayoffAmount[index]),
+                                calculateMonthlyPayment(
+                                  parseFloat(billPayoffAmount[index]),
+                                  parseFloat(billPayoffAPR[index] || 0),
+                                  parseInt(billPayoffPeriod[index])
+                                ),
+                                parseInt(billPayoffPeriod[index])
+                              ).toFixed(2)}</p>
+                              <p>Total Amount: ${(parseFloat(billPayoffAmount[index]) + calculateTotalInterest(
+                                parseFloat(billPayoffAmount[index]),
+                                calculateMonthlyPayment(
+                                  parseFloat(billPayoffAmount[index]),
+                                  parseFloat(billPayoffAPR[index] || 0),
+                                  parseInt(billPayoffPeriod[index])
+                                ),
+                                parseInt(billPayoffPeriod[index])
+                              )).toFixed(2)}</p>
+                              <p>Period: {billPayoffPeriod[index]} months</p>
                             </div>
                           </div>
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => editCreditCard(index)}
-                              className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold mb-4">Custom Payoff Plans</h2>
+                <form onSubmit={addPayoffItem} className="flex flex-wrap gap-2 mb-4">
+                  <input 
+                    type="number" 
+                    value={customPayoffAmount} 
+                    onChange={e => setCustomPayoffAmount(e.target.value)}
+                    placeholder="Enter amount to pay off"
+                    className="p-2 border rounded"
+                  />
+                  <input 
+                    type="number" 
+                    value={customPayoffPeriod} 
+                    onChange={e => setCustomPayoffPeriod(e.target.value)}
+                    placeholder="Enter months to pay off"
+                    className="p-2 border rounded"
+                  />
+                  <input 
+                    type="number" 
+                    value={customPayoffAPR} 
+                    onChange={e => setCustomPayoffAPR(e.target.value)}
+                    placeholder="Enter APR % (optional)"
+                    className="p-2 border rounded"
+                  />
+                  <button type="submit" className="bg-green-500 text-white px-4 py-2 rounded">Add Payoff Plan</button>
+                </form>
+
+                <div className="space-y-2">
+                  {payoffItems.map((item, index) => (
+                    <div key={index} className="border p-4 rounded">
+                      {editingPayoffItem && editingPayoffItem.index === index ? (
+                        <form onSubmit={savePayoffEdit} className="space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-sm font-medium">Name:</label>
+                              <input 
+                                type="text" 
+                                value={editingPayoffItem.name} 
+                                onChange={e => setEditingPayoffItem({ ...editingPayoffItem, name: e.target.value })}
+                                className="w-full p-2 border rounded"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium">Amount:</label>
+                              <input 
+                                type="number" 
+                                value={editingPayoffItem.amount} 
+                                onChange={e => setEditingPayoffItem({ ...editingPayoffItem, amount: e.target.value })}
+                                className="w-full p-2 border rounded"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium">APR %:</label>
+                              <input 
+                                type="number" 
+                                value={editingPayoffItem.apr} 
+                                onChange={e => setEditingPayoffItem({ ...editingPayoffItem, apr: e.target.value })}
+                                className="w-full p-2 border rounded"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium">Payoff Period:</label>
+                              <select 
+                                value={editingPayoffItem.period} 
+                                onChange={e => setEditingPayoffItem({ ...editingPayoffItem, period: e.target.value })}
+                                className="w-full p-2 border rounded"
+                              >
+                                <option value="1">1 month</option>
+                                <option value="3">3 months</option>
+                                <option value="6">6 months</option>
+                                <option value="12">12 months</option>
+                                <option value="24">24 months (2 years)</option>
+                                <option value="36">36 months (3 years)</option>
+                                <option value="60">60 months (5 years)</option>
+                                <option value="custom">Custom</option>
+                              </select>
+                            </div>
+                            {editingPayoffItem.period === "custom" && (
+                              <div className="col-span-2">
+                                <label className="block text-sm font-medium">Custom Period (months):</label>
+                                <input 
+                                  type="number" 
+                                  value={editingPayoffItem.customPeriod || 1} 
+                                  onChange={e => setEditingPayoffItem({ ...editingPayoffItem, period: e.target.value })}
+                                  className="w-full p-2 border rounded"
+                                  min="1"
+                                />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <button type="submit" className="bg-green-500 text-white px-3 py-1 rounded">Save</button>
+                            <button type="button" onClick={cancelPayoffEdit} className="bg-gray-500 text-white px-3 py-1 rounded">Cancel</button>
+                          </div>
+                        </form>
+                      ) : (
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <div className="font-medium">{item.name}</div>
+                            <div className="text-sm text-gray-600">
+                              Principal: ${item.amount.toFixed(2)}<br />
+                              Period: {item.period} months<br />
+                              APR: {item.apr}%<br />
+                              Monthly Payment: ${item.monthlyPayment}<br />
+                              Total Interest: ${item.totalInterest}<br />
+                              Total Amount: ${item.totalAmount}
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => editPayoffItem(index)} 
+                              className="text-blue-500"
                             >
                               Edit
                             </button>
-                            <button
-                              onClick={() => deleteCreditCard(index)}
-                              className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
+                            <button 
+                              onClick={() => deletePayoffItem(index)} 
+                              className="text-red-500"
                             >
                               Delete
                             </button>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold mb-4">Credit Cards</h2>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-1">Payoff Strategy</label>
+                  <select 
+                    value={strategy} 
+                    onChange={e => setStrategy(e.target.value)}
+                    className="p-2 border rounded"
+                  >
+                    <option value="snowball">Snowball (Lowest Balance First)</option>
+                    <option value="avalanche">Avalanche (Highest APR First)</option>
+                  </select>
+                  <div className="mt-2">
+                    <label className="block text-sm font-medium mb-1">Extra Monthly Payment ($)</label>
+                    <input 
+                      type="number" 
+                      value={extraPayment} 
+                      onChange={e => setExtraPayment(e.target.value)}
+                      className="p-2 border rounded"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+                {creditCards.length > 0 && (
+                  <div className="mb-4">
+                    <h3 className="text-lg font-semibold mb-2">Payoff Visualization</h3>
+                    <div className="bg-white p-4 rounded shadow">
+                      <canvas id={`chart-${creditCards[0].name}`}></canvas>
+                    </div>
+                  </div>
+                )}
+                <form onSubmit={addCreditCard} className="flex flex-wrap gap-2 mb-4">
+                  <input 
+                    placeholder="Card Name" 
+                    value={newCreditCard.name} 
+                    onChange={e => setNewCreditCard({ ...newCreditCard, name: e.target.value })}
+                    className="p-2 border rounded"
+                  />
+                  <input 
+                    placeholder="Balance" 
+                    type="number" 
+                    value={newCreditCard.balance} 
+                    onChange={e => setNewCreditCard({ ...newCreditCard, balance: e.target.value })}
+                    className="p-2 border rounded"
+                  />
+                  <input 
+                    placeholder="Credit Limit" 
+                    type="number" 
+                    value={newCreditCard.limit} 
+                    onChange={e => setNewCreditCard({ ...newCreditCard, limit: e.target.value })}
+                    className="p-2 border rounded"
+                  />
+                  <input 
+                    placeholder="APR %" 
+                    type="number" 
+                    value={newCreditCard.apr} 
+                    onChange={e => setNewCreditCard({ ...newCreditCard, apr: e.target.value })}
+                    className="p-2 border rounded"
+                  />
+                  <button type="submit" className="bg-green-500 text-white px-4 py-2 rounded">Add Card</button>
+                </form>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div className="bg-white p-4 rounded shadow">
+                    <h3 className="font-semibold mb-2">Credit Summary</h3>
+                    <p>Total Credit Limit: ${totalCreditLimit.toFixed(2)}</p>
+                    <p>Total Credit Used: ${totalCreditUsed.toFixed(2)}</p>
+                    <p>Available Credit: ${totalAvailableCredit.toFixed(2)}</p>
+                    <p>Credit Utilization: {creditUtilization.toFixed(1)}%</p>
+                  </div>
+                  <div className="bg-white p-4 rounded shadow">
+                    <h3 className="font-semibold mb-2">Credit Cards</h3>
+                    <div className="space-y-2">
+                      {creditCards.map((card, index) => (
+                        <div key={index} className="bg-white p-4 rounded shadow mb-4">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="text-lg font-semibold">{card.name}</h3>
+                              <p>Balance: ${card.balance}</p>
+                              <p>Credit Limit: ${card.limit}</p>
+                              <p>APR: {card.apr}%</p>
+                              <div className="mt-2">
+                                <label className="block text-sm font-medium text-gray-700">
+                                  Monthly Payment
+                                </label>
+                                <input
+                                  type="number"
+                                  value={monthlyPayments[card.id] || ''}
+                                  onChange={(e) => updateMonthlyPayment(card.id, parseFloat(e.target.value) || 0)}
+                                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                  placeholder="Enter monthly payment"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => editCreditCard(index)}
+                                className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => deleteCreditCard(index)}
+                                className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-4">Budget Overview</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white p-4 rounded shadow">
-                  <h3 className="font-semibold mb-2">Monthly Summary</h3>
-                  <p>Income: ${parseFloat(income || 0).toFixed(2)}</p>
-                  <p>Total Expenses: ${totalExpenses.toFixed(2)}</p>
-                  <p>Remaining: ${remaining.toFixed(2)}</p>
-                </div>
-                <div className="bg-white p-4 rounded shadow">
-                  <canvas id="budgetChart"></canvas>
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold mb-4">Budget Overview</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-white p-4 rounded shadow">
+                    <h3 className="font-semibold mb-2">Monthly Summary</h3>
+                    <p>Income: ${parseFloat(income || 0).toFixed(2)}</p>
+                    <p>Total Expenses: ${totalExpenses.toFixed(2)}</p>
+                    <p>Remaining: ${remaining.toFixed(2)}</p>
+                  </div>
+                  <div className="bg-white p-4 rounded shadow">
+                    <canvas id="budgetChart"></canvas>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="bg-white p-4 rounded shadow mb-4">
-              <h2 className="text-xl font-bold mb-4">Monthly Summary</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <h3 className="font-semibold">Total Income</h3>
-                  <p className="text-green-600">${income}</p>
-                </div>
-                <div>
-                  <h3 className="font-semibold">Total Expenses</h3>
-                  <p className="text-red-600">${totalExpenses}</p>
-                </div>
-                <div>
-                  <h3 className="font-semibold">Total Credit Card Payments</h3>
-                  <p className="text-blue-600">
-                    ${Object.values(monthlyPayments).reduce((sum, payment) => sum + (payment || 0), 0)}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="font-semibold">Remaining</h3>
-                  <p className="text-gray-600">
-                    ${income - totalExpenses - Object.values(monthlyPayments).reduce((sum, payment) => sum + (payment || 0), 0)}
-                  </p>
+              <div className="bg-white p-4 rounded shadow mb-4">
+                <h2 className="text-xl font-bold mb-4">Monthly Summary</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <h3 className="font-semibold">Total Income</h3>
+                    <p className="text-green-600">${income}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Total Expenses</h3>
+                    <p className="text-red-600">${totalExpenses}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Total Credit Card Payments</h3>
+                    <p className="text-blue-600">
+                      ${Object.values(monthlyPayments).reduce((sum, payment) => sum + (payment || 0), 0)}
+                    </p>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Remaining</h3>
+                    <p className="text-gray-600">
+                      ${income - totalExpenses - Object.values(monthlyPayments).reduce((sum, payment) => sum + (payment || 0), 0)}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
