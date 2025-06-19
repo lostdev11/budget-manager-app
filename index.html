@@ -48,6 +48,10 @@
         const [billPayoffAmount, setBillPayoffAmount] = useState({});
         const [billPayoffPeriod, setBillPayoffPeriod] = useState({});
         const [billPayoffAPR, setBillPayoffAPR] = useState({});
+        const [strategy, setStrategy] = useState("avalanche");
+        const [extraPayment, setExtraPayment] = useState(0);
+        const [chartInstance, setChartInstance] = useState(null);
+        const [cardCharts, setCardCharts] = useState({});
 
         const sortCards = (cards) => {
           return strategy === "snowball"
