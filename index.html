@@ -48,6 +48,8 @@
         const [billPayoffAmount, setBillPayoffAmount] = useState({});
         const [billPayoffPeriod, setBillPayoffPeriod] = useState({});
         const [billPayoffAPR, setBillPayoffAPR] = useState({});
+        const [suggestions, setSuggestions] = useState(JSON.parse(localStorage.getItem("suggestions")) || []);
+        const [newSuggestion, setNewSuggestion] = useState("");
 
         const sortCards = (cards) => {
           return strategy === "snowball"
@@ -159,7 +161,8 @@
           localStorage.setItem("savings", JSON.stringify(savings));
           localStorage.setItem("categories", JSON.stringify(categories));
           localStorage.setItem("creditCards", JSON.stringify(creditCards));
-        }, [income, bills, subscriptions, savings, categories, creditCards]);
+          localStorage.setItem("suggestions", JSON.stringify(suggestions));
+        }, [income, bills, subscriptions, savings, categories, creditCards, suggestions]);
 
         const addCategory = (e) => {
           e.preventDefault();
@@ -377,6 +380,13 @@
           const updatedBudgets = savedBudgets.filter((_, i) => i !== index);
           setSavedBudgets(updatedBudgets);
           localStorage.setItem("savedBudgets", JSON.stringify(updatedBudgets));
+        };
+
+        const addSuggestion = () => {
+          if (!newSuggestion.trim()) return;
+          const updated = [...suggestions, newSuggestion.trim()];
+          setSuggestions(updated);
+          setNewSuggestion("");
         };
 
         return (
@@ -828,6 +838,30 @@
                   <canvas id="budgetChart"></canvas>
                 </div>
               </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold mb-4">Suggestion Box</h2>
+              <textarea
+                className="w-full p-2 border rounded mb-2"
+                value={newSuggestion}
+                onChange={e => setNewSuggestion(e.target.value)}
+                placeholder="Enter your suggestion"
+              ></textarea>
+              <button
+                onClick={addSuggestion}
+                className="bg-blue-500 text-white px-4 py-2 rounded"
+              >
+                Submit
+              </button>
+              {suggestions.length > 0 && (
+                <ul className="list-disc pl-5 mt-4 space-y-1">
+                  {suggestions.map((s, i) => (
+                    <li key={i}>{s}</li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
         );

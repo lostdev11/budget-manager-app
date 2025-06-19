@@ -12,6 +12,7 @@ A comprehensive budget management web application that helps you track your inco
 - Budget saving and loading
 - Visual dashboard with charts
 - Responsive design
+- Suggestion box for user feedback
 
 ## Setup
 
